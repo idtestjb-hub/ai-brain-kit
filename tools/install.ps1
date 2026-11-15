@@ -68,7 +68,8 @@ Write-Host "Memory for ${WorkFolder}: $MemoryDir"
 $marker = Join-Path $P.State 'installed.txt'
 if ($Join -and -not (Test-Path -LiteralPath $marker)) {
     Step 'Prepare this machine to receive the brain'
-    if ((Test-Path -LiteralPath $P.Vault) -and @(Get-ChildItem -LiteralPath $P.Vault -Force).Count -gt 0) {
+    # Files this installer writes itself do not count, so a failed run can be re-run.
+    if ((Test-Path -LiteralPath $P.Vault) -and @(Get-ChildItem -LiteralPath $P.Vault -Force | Where-Object { $_.Name -notin '.stignore', '.stfolder' }).Count -gt 0) {
         throw "Vault folder is not empty: $($P.Vault). Move it away first; joining needs an empty vault."
     }
     # Move this machine's own copies aside so the first sync does not create conflict copies.

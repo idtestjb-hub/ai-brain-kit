@@ -251,15 +251,32 @@ def download_syncthing(bin_dir):
         f.write(data)
     dst = os.path.join(bin_dir, 'syncthing')
     with zipfile.ZipFile(tmp) as z:
-        member = [m for m in z.namelist() if m.rsplit('/', 1)[-1] == 'syncthing' and not m.endswith('/')]
+        # The archive also holds etc/ init scripts named 'syncthing'; the program sits at '<top folder>/syncthing'.
+        member = sorted((m for m in z.namelist() if m.rsplit('/', 1)[-1] == 'syncthing' and not m.endswith('/')),
+                        key=lambda m: m.count('/'))
         if not member:
             raise BrainError('The archive has no syncthing binary.')
         with z.open(member[0]) as src, open(dst, 'wb') as out:
             shutil.copyfileobj(src, out)
     os.remove(tmp)
+    if not is_macho(dst):
+        os.remove(dst)
+        raise BrainError('The file taken from %s is not a macOS program (%s); aborting.' % (name, member[0]))
     os.chmod(dst, 0o755)
     subprocess.run(['xattr', '-d', 'com.apple.quarantine', dst], capture_output=True)  # ignore failure
     return dst
+
+
+MACHO_MAGIC = (b'\xca\xfe\xba\xbe', b'\xca\xfe\xba\xbf', b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe')
+
+
+def is_macho(path):
+    """True when the file starts with a Mach-O or universal-binary header."""
+    try:
+        with open(path, 'rb') as f:
+            return f.read(4) in MACHO_MAGIC
+    except OSError:
+        return False
 
 
 def find_syncthing(P, explicit=None):
@@ -269,7 +286,12 @@ def find_syncthing(P, explicit=None):
         return explicit
     cand = os.path.join(P.bin, 'syncthing' + ('.exe' if IS_WIN else ''))
     if os.path.isfile(cand):
-        return cand
+        if not IS_MAC or is_macho(cand):
+            return cand
+        # A broken earlier download (1.2.0 could save a shell script here): replace it.
+        print('  %s is not a macOS program; downloading again' % cand)
+        os.remove(cand)
+        return download_syncthing(P.bin)
     exe = shutil.which('syncthing')
     if exe:
         return exe
@@ -560,7 +582,9 @@ def cmd_install(a):
     marker = os.path.join(P.state, 'installed.txt')
     if join and not os.path.isfile(marker):
         step('Prepare this machine to receive the brain')
-        if os.path.isdir(P.vault) and os.listdir(P.vault):
+        # Files this installer writes itself (or Finder adds) do not count: a failed run can be re-run.
+        own = ('.stignore', '.stfolder', '.DS_Store')
+        if os.path.isdir(P.vault) and [n for n in os.listdir(P.vault) if n not in own]:
             raise BrainError('Vault folder is not empty: %s. Move it away first; joining needs an empty vault.' % P.vault)
         bk = os.path.join(P.backups, 'before-join-' + now('%Y-%m-%d_%H%M%S'))
         moved = 0

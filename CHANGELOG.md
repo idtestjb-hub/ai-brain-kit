@@ -4,7 +4,8 @@
 
 - **Double-click setup:** `Setup.cmd` opens a guided menu. It checks Tailscale (and offers to install it), lets you pick the work folder in a folder window, and runs the install. Run it again later to invite or accept machines, check, reconnect AI tools or turn on hooks. It stops with a plain message if your organisation controls which scripts may run.
 - **Invite codes:** pairing no longer needs Device IDs and IPs copied by hand. `invite.ps1` shows one code (`AIB1-...`) and the same code as a QR; the new machine joins with `install.ps1 -Invite <code>`, and `accept.ps1` on the inviting machine adds it after you confirm its name. Codes are checked for typos and for the right kit.
-- **macOS (experimental):** `tools/mac/brain.py` installs, invites, accepts, checks and connects AI tools on a Mac. It downloads the official Syncthing release and verifies its checksum. Tested against Windows machines, not yet on a real Mac.
+- **macOS (experimental):** `tools/mac/brain.py` installs, invites, accepts, checks and connects AI tools on a Mac. It downloads the official Syncthing release, verifies its checksum and checks that the file it keeps is a macOS program. Tested on a MacBook (Apple silicon, macOS 15) joined to a Windows machine.
+- A join that stopped part-way can now be run again: the files the installer itself writes into the vault no longer count as "vault not empty".
 
 ## 1.1.1 (2026-11-15)
 
