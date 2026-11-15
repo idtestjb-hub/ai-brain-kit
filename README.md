@@ -1,6 +1,6 @@
 # AI Brain kit: one shared brain for your AI assistants on all your Windows machines
 
-The kit gives your AI coding assistants (the one that keeps its settings in `~/.claude`, plus Codex, Gemini/Antigravity and OpenCode if installed) one shared "brain" across your machines:
+The kit gives your AI coding assistants (the one that keeps its settings in `~/.claude`, plus Codex, Gemini/Antigravity, OpenCode, GitHub Copilot and Cursor if installed) one shared "brain" across your machines:
 
 - main instructions (`~/.claude/CLAUDE.md`), rules, skills, agents, commands, handoffs and hooks;
 - the automatic memory of your main work folder;
@@ -88,7 +88,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\AI Brain\_
 | memory of the main work folder | conversation history, other folders' memory |
 | the vault | `~/.claude/personal-memory/`, hook temp files |
 
-After adding a skill or editing `AGENTS.md`, run `_tools/connect-clients.ps1` on each machine so Codex/Gemini/OpenCode see it.
+After adding a skill or editing `AGENTS.md`, run `_tools/connect-clients.ps1` on each machine so the other AI tools see it. Add `-DryRun` first to list what it would change (`register-hooks.ps1` takes `-DryRun` too).
+
+| Tool | Gets the shared instructions in | Gets the skills in |
+|---|---|---|
+| Codex | `~/.codex/AGENTS.md` | `~/.agents/skills` |
+| Gemini / Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills`, `~/.gemini/antigravity/skills` |
+| OpenCode | `~/.config/opencode/AGENTS.md` | — |
+| GitHub Copilot (VS Code and CLI) | `~/.copilot/copilot-instructions.md` | `~/.copilot/skills` |
+| Cursor | no user-level file: paste `AGENTS.md` once into Cursor Settings > Rules | reads `~/.claude/skills` by itself |
+
+A tool's existing file that the kit did not write is backed up before the first overwrite.
 
 ## Safety
 

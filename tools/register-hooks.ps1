@@ -11,13 +11,15 @@ param(
     [string]$HomeRoot,
     [switch]$PersonalMemory,
     [switch]$InstallPython,
-    [string]$SettingsPath
+    [string]$SettingsPath,
+    [switch]$DryRun     # show the hooks section that would be saved; change nothing
 )
 . (Join-Path $PSScriptRoot 'brain-common.ps1')
 $P = Get-BrainPaths -HomeRoot $HomeRoot
 if (-not $SettingsPath) { $SettingsPath = Join-Path $P.Config 'settings.json' }
 
 $py = Find-Python
+if (-not $py -and $DryRun) { $py = 'C:\<python>\python.exe'; Write-Host 'No Python found; the dry run uses a placeholder path.' -ForegroundColor Yellow }
 if (-not $py -and $InstallPython) {
     winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
     $py = Find-Python
@@ -26,7 +28,7 @@ if (-not $py) { throw 'No Python found. Install Python 3 (or run again with -Ins
 Write-Host "Python: $py"
 
 # Local copies of the launcher and the personal-memory hook (config root does not sync).
-foreach ($f in 'run_shared_hook.py', 'personal_memory_hook.py') { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $P.Config $f) -Force }
+if (-not $DryRun) { foreach ($f in 'run_shared_hook.py', 'personal_memory_hook.py') { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $P.Config $f) -Force } }
 
 $manifestPath = Join-Path $P.Config 'hooks\hooks.json'
 $entries = @()
@@ -64,12 +66,17 @@ foreach ($e in $entries) {
 }
 if ($PersonalMemory) {
     $pm = Join-Path $P.Config 'personal-memory\MEMORY.md'
-    if (-not (Test-Path -LiteralPath $pm)) { Write-Utf8 $pm "# Personal memory (this machine only)`n" }
+    if (-not $DryRun -and -not (Test-Path -LiteralPath $pm)) { Write-Utf8 $pm "# Personal memory (this machine only)`n" }
     Add-Entry 'SessionStart' $null "`"$pyFwd`" -B `"$cfgFwd/personal_memory_hook.py`"" 15
     Write-Host '  hook   SessionStart -> personal memory'
 }
 if (-not @($H.PSObject.Properties).Count) { $settings.PSObject.Properties.Remove('hooks') }
 
+if ($DryRun) {
+    Write-Host "DRY RUN: $SettingsPath would get this hooks section (other settings unchanged):" -ForegroundColor Yellow
+    if ($settings.PSObject.Properties['hooks']) { $settings.hooks | ConvertTo-Json -Depth 20 } else { '(no hooks)' }
+    return
+}
 if (Test-Path -LiteralPath $SettingsPath) { Copy-Item -LiteralPath $SettingsPath -Destination "$SettingsPath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')" }
 Write-Utf8 $SettingsPath ($settings | ConvertTo-Json -Depth 20)
 Write-Host "Saved $SettingsPath ($($entries.Count) shared hook(s)$(if ($PersonalMemory) {', personal memory'}))."

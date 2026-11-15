@@ -1,6 +1,6 @@
 {
   "id": "public",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kitName": "ai-brain-kit",
   "vaultName": "AI Brain",
   "stateDirName": ".ai-brain",
