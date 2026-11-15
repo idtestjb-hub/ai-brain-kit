@@ -1,0 +1,4 @@
+{
+  "_comment": "Shared hooks. Put <name>.py next to this file and add {\"name\", \"event\", \"matcher\", \"timeout\"} below; then run _tools/register-hooks.ps1 on every machine. Example: {\"name\": \"py_syntax_check\", \"event\": \"PostToolUse\", \"matcher\": \"Write|Edit|MultiEdit\", \"timeout\": 15}",
+  "hooks": []
+}

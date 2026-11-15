@@ -1,0 +1,9 @@
+{
+  "id": "public",
+  "version": "1.0.0",
+  "kitName": "ai-brain-kit",
+  "vaultName": "AI Brain",
+  "stateDirName": ".ai-brain",
+  "taskName": "AI Brain - Syncthing",
+  "language": "en"
+}
