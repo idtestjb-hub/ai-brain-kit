@@ -22,19 +22,7 @@ Connect-SyncthingApi -StHome $P.StHome -GuiPort $port
 $myId = (Invoke-St GET '/rest/system/status').myID
 if ($PeerId -eq $myId) { throw 'PeerId is this machine''s own ID.' }
 
-$known = @(Invoke-St GET '/rest/config/devices' | ForEach-Object { $_.deviceID })
-if ($known -notcontains $PeerId) {
-    Invoke-St POST '/rest/config/devices' @{ deviceID = $PeerId; name = $PeerName; addresses = @("tcp://${PeerIp}:$PeerPort"); autoAcceptFolders = $false; introducer = $false } | Out-Null
-    Write-Host "Added $PeerName ($PeerIp)"
-} else { Write-Host "$PeerName is already known" }
+Add-BrainPeer -PeerId $PeerId -PeerIp $PeerIp -PeerPort $PeerPort -PeerName $PeerName
 
-foreach ($id in 'ai-claude', 'ai-memory', 'ai-brain') {
-    $cur = Invoke-St GET "/rest/config/folders/$id"
-    if (@($cur.devices | ForEach-Object { $_.deviceID }) -notcontains $PeerId) {
-        $cur.devices = @($cur.devices) + [pscustomobject]@{ deviceID = $PeerId }
-        Invoke-St PUT "/rest/config/folders/$id" $cur | Out-Null
-        Write-Host "Shared $id with $PeerName"
-    } else { Write-Host "$id already shared with $PeerName" }
-}
 Write-Host "`nDevice ID of this machine: $myId"
 try { Write-Host "Tailscale IP: $(Get-TailscaleIp)" } catch { }

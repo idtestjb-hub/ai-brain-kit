@@ -6,6 +6,9 @@
   First machine (creates a new, empty brain):
     install.ps1 -WorkFolder "D:\Work"
   Another machine (joins an existing brain; the brain's content arrives by sync):
+    install.ps1 -WorkFolder "D:\Work" -Invite <code from invite.ps1 on a machine that has the brain>
+    then run accept.ps1 on that machine.
+  Or, without an invite code:
     install.ps1 -WorkFolder "D:\Work" -PeerId <Device ID> -PeerIp <Tailscale IP> -PeerName <name>
 
   WorkFolder is the folder you usually open the assistant in. Its automatic memory becomes the shared memory.
@@ -14,6 +17,7 @@
 #>
 param(
     [Parameter(Mandatory)][string]$WorkFolder,
+    [string]$Invite,
     [string]$PeerId,
     [string]$PeerIp,
     [string]$PeerName = 'peer',
@@ -29,6 +33,11 @@ param(
 $P   = Get-BrainPaths -HomeRoot $HomeRoot
 $Ed  = $P.Edition
 $Kit = Split-Path $PSScriptRoot -Parent           # kit root: tools\ and templates\
+if ($Invite) {
+    $inv = Read-InviteCode -Code $Invite -KitName $Ed.kitName
+    $PeerId = $inv.PeerId; $PeerIp = $inv.PeerIp; $PeerPort = $inv.PeerPort
+    if ($PeerName -eq 'peer') { $PeerName = "brain-$($inv.PeerIp)" }
+}
 $Join = [bool]$PeerId
 function Step($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 
@@ -195,9 +204,13 @@ if (-not $Join) {
     & $connect -HomeRoot $HomeRoot
 } elseif ($WaitMinutes -gt 0) {
     Step "Wait up to $WaitMinutes minutes for the first sync"
-    Write-Host 'On the other machine, run add-peer.ps1 with the Device ID and IP printed below.' -ForegroundColor Yellow
-    Write-Host "  Device ID:    $myId"
-    Write-Host "  Tailscale IP: $ts   (port $ListenPort)"
+    if ($Invite) {
+        Write-Host 'Now, on the machine that gave you the invite: run Setup > "Accept a new machine" (or accept.ps1).' -ForegroundColor Yellow
+    } else {
+        Write-Host 'On the other machine, run add-peer.ps1 with the Device ID and IP printed below.' -ForegroundColor Yellow
+        Write-Host "  Device ID:    $myId"
+        Write-Host "  Tailscale IP: $ts   (port $ListenPort)"
+    }
     $need = @((Join-Path $P.Vault 'AGENTS.md'), (Join-Path $P.Config 'CLAUDE.md'), (Join-Path $MemoryDir 'MEMORY.md'))
     $deadline = (Get-Date).AddMinutes($WaitMinutes); $ready = $false
     while ((Get-Date) -lt $deadline) {
@@ -216,5 +229,5 @@ if (-not $Join) {
 Write-Host ''
 Write-Host "Device ID of this machine : $myId"
 Write-Host "Tailscale IP              : $ts (port $ListenPort)"
-Write-Host 'To add another machine: run install.ps1 there with -PeerId/-PeerIp of this machine,'
-Write-Host 'then run add-peer.ps1 here with the new machine''s ID and IP.'
+Write-Host 'To add another machine: run Setup > "Invite" here (or invite.ps1), use that code with Setup > "Join"'
+Write-Host 'on the new machine, then run Setup > "Accept a new machine" here (or accept.ps1).'

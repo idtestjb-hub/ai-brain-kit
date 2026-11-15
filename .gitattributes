@@ -1,0 +1,3 @@
+# Windows batch files need CRLF; scripts for macOS need LF.
+*.cmd text eol=crlf
+*.py text eol=lf

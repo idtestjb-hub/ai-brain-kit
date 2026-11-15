@@ -8,7 +8,7 @@ The kit gives your AI coding assistants (the one that keeps its settings in `~/.
 
 Everything syncs with **Syncthing, only over your own Tailscale network**: no cloud storage, no public relays. Sign-ins, `settings.json` and conversation history never sync.
 
-> Version 1 supports Windows 10/11 only.
+> Windows 10/11. macOS support is **experimental** (see [macOS](#macos-experimental)): it has passed tests against Windows machines but not yet on a real Mac.
 
 ## What you need on every machine
 
@@ -16,42 +16,53 @@ Everything syncs with **Syncthing, only over your own Tailscale network**: no cl
 2. **winget** (App Installer from the Microsoft Store; present on current Windows).
 3. Optional: **Python 3** for hooks (the kit can install it).
 
-## 1. Unpack
+## 1. Download
 
-1. Download the kit: the ZIP attached to the latest **Release** on GitHub, or **Code > Download ZIP**. Unzip it and use the folder that contains `tools\` and `templates\`. Windows often adds one more folder level: with **Code > Download ZIP** the right folder is usually `Downloads\ai-brain-kit-main\ai-brain-kit-main`. What changed in each version is in `CHANGELOG.md`.
-2. Open PowerShell in that folder (for example `cd "$env:USERPROFILE\Downloads\ai-brain-kit-main\ai-brain-kit-main"`, then `dir` should list `tools` and `templates`) and unblock the files once:
-   ```powershell
-   Get-ChildItem -Recurse | Unblock-File
-   ```
-3. Run every script below with:
-   `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<script>.ps1 ...`
-   (the flag applies to that one run only; it changes no system setting).
+Download the kit: the ZIP attached to the latest **Release** on GitHub, or **Code > Download ZIP**. Unzip it and open the folder that contains `Setup.cmd`, `tools\` and `templates\`. Windows often adds one more folder level: with **Code > Download ZIP** the right folder is usually `Downloads\ai-brain-kit-main\ai-brain-kit-main`. What changed in each version is in `CHANGELOG.md`.
 
-## 2. First machine
+## 2. The easy way: double-click `Setup.cmd`
 
-Pick your main work folder (the folder you usually open the assistant in). It must already exist; on a brand-new machine create it first, for example `mkdir "D:\Work"`. Then:
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -WorkFolder "D:\Work"
-```
-This installs Syncthing for your user, creates the vault from empty templates (existing files are kept), limits Syncthing to Tailscale, shares three folders (`ai-claude`, `ai-memory`, `ai-brain`), adds a sign-in task, and links the vault with installed AI tools. It prints this machine's **Device ID** and **Tailscale IP**: keep them for step 3.
+If Windows asks whether to run a file downloaded from the internet, choose **Run**. Setup unblocks the kit's files, checks Tailscale (and offers to install it), lets you pick your work folder in a normal folder window, and does the rest.
 
-Then edit `~/.claude/CLAUDE.md` with your own rules.
+**First machine:** choose **1 Start a new brain**. Then edit `~/.claude/CLAUDE.md` with your own rules.
 
-## 3. Each additional machine
+**Each additional machine** (three short steps, no IDs to copy):
+1. On a machine that already has the brain: Setup > **Invite another machine**. It shows an **invite code** (`AIB1-...`) and the same code as a QR. Send the text to the new machine any way you like (a note to yourself, a chat with yourself, or scan the QR with your phone).
+2. On the new machine: Setup > **2 Join**, paste the code, pick the work folder.
+3. Back on the first machine: Setup > **Accept a new machine**. It shows the new machine's name and address; say yes only if you recognise it.
 
-On the new machine (its vault must be empty):
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -WorkFolder "D:\Work" -PeerId <ID of first machine> -PeerIp <IP of first machine> -PeerName main
-```
-Existing `CLAUDE.md`, rules, skills, handoffs, hooks and memory on the new machine are moved to a backup folder first, so the first sync does not create conflict copies.
+The new machine's own `CLAUDE.md`, rules, skills, handoffs, hooks and memory are moved to a backup folder first, so the first sync does not create conflict copies. Running Setup again later gives you **Check**, **Reconnect AI tools** and **Hooks**.
 
-On the first machine, using the new machine's ID and IP printed above:
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\AI Brain\_tools\add-peer.ps1" -PeerId <new ID> -PeerIp <new IP> -PeerName laptop
-```
-The installer waits up to 30 minutes for the first sync, then links the vault and AI tools. If it times out, run the same install command again.
+If your organisation controls which scripts may run on the PC, Setup stops and says so: ask your IT team. The kit never tries to get around such a policy.
 
-To keep syncing while one machine is off, pair every machine with every other one using `add-peer.ps1` on both sides.
+## 3. The same with commands
+
+Open PowerShell in the kit folder, unblock the files once (`Get-ChildItem -Recurse | Unblock-File`), and run each script as `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<script>.ps1 ...` (the flag applies to that one run only; it changes no system setting).
+
+| Step | Command |
+|---|---|
+| First machine (the work folder must exist: `mkdir "D:\Work"`) | `tools\install.ps1 -WorkFolder "D:\Work"` |
+| Invite code, on a machine with the brain | `tools\invite.ps1` |
+| New machine joins | `tools\install.ps1 -WorkFolder "D:\Work" -Invite AIB1-...` |
+| Accept it, on the inviting machine | `tools\accept.ps1` |
+
+After the first install the tools also live in `~\AI Brain\_tools`. The installer waits up to 30 minutes for the first sync, then links the vault and AI tools; if it times out, run the same command again. Without an invite code you can still pair by hand: `install.ps1 ... -PeerId <Device ID> -PeerIp <100.x.y.z>` on the new machine and `add-peer.ps1 -PeerId ... -PeerIp ... -PeerName ...` on the other.
+
+To keep syncing while one machine is off, invite and accept so that every machine is paired with every other one.
+
+## macOS (experimental)
+
+Needs Python 3 (`python3 --version` in Terminal; macOS offers to install it if missing) and Tailscale signed in to the same account as your other machines.
+
+1. Unzip the kit and open Terminal in its folder (`cd ~/Downloads/<kit folder>`).
+2. Create your work folder if it is new: `mkdir -p ~/Work`.
+3. First machine of your brain: `python3 tools/mac/brain.py install --work-folder ~/Work`
+   Joining an existing brain: get an invite code from a machine that has it (Setup > Invite on Windows, or `python3 tools/mac/brain.py invite` on a Mac), then:
+   `python3 tools/mac/brain.py install --work-folder ~/Work --invite AIB1-...`
+   and accept it on the inviting machine.
+4. Check: `python3 tools/mac/brain.py check`. Other commands: `invite`, `accept`, `connect-clients`, `register-hooks`.
+
+The Mac installer downloads the official Syncthing release from Syncthing's GitHub page, verifies its SHA-256 checksum, keeps it in `~/.ai-brain/bin`, and starts it at login with a LaunchAgent.
 
 ## 4. Hooks (optional)
 
