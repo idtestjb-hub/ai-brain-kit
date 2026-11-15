@@ -21,7 +21,7 @@ if (-not $SettingsPath) { $SettingsPath = Join-Path $P.Config 'settings.json' }
 $py = Find-Python
 if (-not $py -and $DryRun) { $py = 'C:\<python>\python.exe'; Write-Host 'No Python found; the dry run uses a placeholder path.' -ForegroundColor Yellow }
 if (-not $py -and $InstallPython) {
-    winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
+    winget install -e --id Python.Python.3.12 --source winget --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
     $py = Find-Python
 }
 if (-not $py) { throw 'No Python found. Install Python 3 (or run again with -InstallPython). Hooks need it.' }

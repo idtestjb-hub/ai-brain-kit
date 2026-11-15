@@ -75,9 +75,14 @@ function Set-Junction {
 }
 
 function Get-TailscaleIp {
-    $cmd = Get-Command tailscale -ErrorAction SilentlyContinue
-    if (-not $cmd) { throw 'Tailscale is not installed. Install it, sign in, then run this again.' }
-    $ip = @(& tailscale ip -4 2>$null | Select-Object -First 1)[0]
+    $exe = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
+    if (-not $exe) {
+        # A PowerShell window opened before Tailscale was installed has no tailscale on its PATH yet.
+        $default = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
+        if (Test-Path -LiteralPath $default) { $exe = $default }
+    }
+    if (-not $exe) { throw 'Tailscale is not installed. Install it, sign in, then run this again.' }
+    $ip = @(& $exe ip -4 2>$null | Select-Object -First 1)[0]
     if (-not $ip) { throw 'Tailscale is not connected. Sign in, then run this again.' }
     $ip = $ip.Trim()
     if ($ip -notmatch '^100\.\d+\.\d+\.\d+$') { throw "Unexpected Tailscale address: $ip" }

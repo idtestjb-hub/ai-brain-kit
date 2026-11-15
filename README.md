@@ -18,8 +18,8 @@ Everything syncs with **Syncthing, only over your own Tailscale network**: no cl
 
 ## 1. Unpack
 
-1. Download the kit (on GitHub: **Code > Download ZIP**) and unzip it to a folder such as `Downloads\ai-brain-kit`. The folder must contain `tools\` and `templates\`.
-2. Open PowerShell in that folder and unblock the files once:
+1. Download the kit: the ZIP attached to the latest **Release** on GitHub, or **Code > Download ZIP**. Unzip it and use the folder that contains `tools\` and `templates\`. Windows often adds one more folder level: with **Code > Download ZIP** the right folder is usually `Downloads\ai-brain-kit-main\ai-brain-kit-main`. What changed in each version is in `CHANGELOG.md`.
+2. Open PowerShell in that folder (for example `cd "$env:USERPROFILE\Downloads\ai-brain-kit-main\ai-brain-kit-main"`, then `dir` should list `tools` and `templates`) and unblock the files once:
    ```powershell
    Get-ChildItem -Recurse | Unblock-File
    ```
@@ -29,7 +29,7 @@ Everything syncs with **Syncthing, only over your own Tailscale network**: no cl
 
 ## 2. First machine
 
-Pick your main work folder (the folder you usually open the assistant in), then:
+Pick your main work folder (the folder you usually open the assistant in). It must already exist; on a brand-new machine create it first, for example `mkdir "D:\Work"`. Then:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -WorkFolder "D:\Work"
 ```

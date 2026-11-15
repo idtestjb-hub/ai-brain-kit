@@ -33,7 +33,9 @@ $Join = [bool]$PeerId
 function Step($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 
 Step 'Check prerequisites'
-if (-not (Test-Path -LiteralPath $WorkFolder)) { throw "WorkFolder does not exist: $WorkFolder" }
+if (-not (Test-Path -LiteralPath $WorkFolder -PathType Container)) {
+    throw "WorkFolder does not exist: $WorkFolder`nUse the folder you already open your AI assistant in. If this path is right and the folder is just new, create it first:  mkdir `"$WorkFolder`"  then run this again."
+}
 $ts = Get-TailscaleIp
 if ($Join) {
     if ($PeerId -notmatch '^[A-Z2-7]{7}(-[A-Z2-7]{7}){7}$') { throw 'PeerId is not a Syncthing Device ID.' }
@@ -43,7 +45,8 @@ $exe = Find-Syncthing
 if (-not $exe) {
     if ($NoWinget) { throw 'Syncthing is not installed.' }
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw 'winget (App Installer) is missing. Install it from the Microsoft Store, then run this again.' }
-    winget install -e --id Syncthing.Syncthing --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
+    # --source winget: skip the Microsoft Store source, which fails where the Store is absent (e.g. Windows Sandbox).
+    winget install -e --id Syncthing.Syncthing --source winget --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
     $exe = Find-Syncthing
     if (-not $exe) { throw 'Syncthing install did not produce syncthing.exe.' }
 }
