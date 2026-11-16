@@ -33,10 +33,17 @@ $env:TEMP = "$WorkRoot\tmp"; $env:TMP = $env:TEMP; New-Item -ItemType Directory 
 $ts = (& tailscale ip -4 | Select-Object -First 1).Trim()
 $results = [System.Collections.Generic.List[string]]::new()
 $fails = 0
+$script:lastOut = $null
+function Show-LastOutput {
+    # On a failure, print what the last kit command said (CI logs show nothing else).
+    if ($script:lastOut) { Write-Host '---- output of the last kit command:'; Write-Host $script:lastOut; Write-Host '----'; $script:lastOut = $null }
+}
 function Ok($cond, $what) {
     $r = if ($cond) { 'PASS' } else { $script:fails++; 'FAIL' }
     $results.Add("$r  $what"); Write-Host "$r  $what" -ForegroundColor $(if ($cond) { 'Green' } else { 'Red' })
+    if (-not $cond) { Show-LastOutput }
 }
+function LinkType($path) { (Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue).LinkType }
 function Run($script, [hashtable]$a) {
     # Build "-Name value" / "-Switch" arguments: splatting a hashtable to an exe gives "-Name:value",
     # which Windows PowerShell 5.1 -File cannot bind to switches.
@@ -46,7 +53,9 @@ function Run($script, [hashtable]$a) {
         if ($v -is [bool]) { if ($v) { $argv += "-$k" } }
         else { $argv += "-$k"; $argv += (@($v) -join ',') }
     }
-    & $Shell @argv 2>&1 | Out-String
+    $o = & $Shell @argv 2>&1 | Out-String
+    $script:lastOut = "[$script exit $LASTEXITCODE]`n$o"
+    $o
 }
 function Api($m, $route, $method = 'GET', $body = $null) {
     $key = ([xml](Get-Content "$($m.Home)\$($cfg.stateDirName)\syncthing\config.xml" -Raw)).configuration.gui.apikey
@@ -68,7 +77,7 @@ try {
     Ok (Test-Path "$($A.Home)\$vault\AGENTS.md") 'A: vault created from templates'
     Ok (Test-Path "$($A.Home)\.claude\CLAUDE.md") 'A: CLAUDE.md template laid down'
     Ok (Test-Path "$($A.Home)\$vault\_tools\install.ps1") 'A: tools copied into vault'
-    Ok ((Get-Item "$($A.Home)\$vault\memory" -Force).LinkType -eq 'Junction') 'A: vault memory junction'
+    Ok ((LinkType "$($A.Home)\$vault\memory") -eq 'Junction') 'A: vault memory junction'
     $idA = (Api $A '/rest/system/status').myID
     $opt = Api $A '/rest/config/options'
     Ok (-not $opt.relaysEnabled -and -not $opt.globalAnnounceEnabled -and ($opt.listenAddresses -join ',') -eq "tcp://${ts}:$($A.Listen)") 'A: Tailscale-only options'
@@ -93,7 +102,7 @@ try {
     Ok (WaitFor { (Test-Path "$($B.Home)\$vault\AGENTS.md") -and (Test-Path "$($B.Home)\.claude\CLAUDE.md") -and (Test-Path "$memB\MEMORY.md") } 180) 'B: first sync delivered AGENTS.md, CLAUDE.md, MEMORY.md'
     Ok ((Get-Content "$($B.Home)\.claude\CLAUDE.md" -Raw) -notmatch 'B own old') 'B: CLAUDE.md is the shared one, no conflict copy'
     $out = Run 'connect-clients.ps1' @{ HomeRoot = $B.Home }
-    Ok ((Get-Item "$($B.Home)\$vault\memory" -Force).LinkType -eq 'Junction') 'B: vault junctions after connect-clients'
+    Ok ((LinkType "$($B.Home)\$vault\memory") -eq 'Junction') 'B: vault junctions after connect-clients'
 
     # 2b. dry run, GitHub Copilot and Cursor
     New-Item -ItemType Directory "$($B.Home)\.copilot", "$($B.Home)\.cursor", "$($B.Home)\.claude\skills\demo-skill" -Force | Out-Null
@@ -103,7 +112,7 @@ try {
     Ok ($out -match 'note\s+Cursor') 'B: Cursor gets a note (no user-level file to write)'
     $out = Run 'connect-clients.ps1' @{ HomeRoot = $B.Home }
     Ok ((Get-Content "$($B.Home)\.copilot\copilot-instructions.md" -Raw) -match 'generated from the vault') 'B: Copilot instructions written'
-    Ok ((Get-Item "$($B.Home)\.copilot\skills\demo-skill" -Force).LinkType -eq 'Junction') 'B: skill linked for Copilot'
+    Ok ((LinkType "$($B.Home)\.copilot\skills\demo-skill") -eq 'Junction') 'B: skill linked for Copilot'
     $out = Run 'connect-clients.ps1' @{ HomeRoot = $B.Home }
     Ok ($out -match 'same\s+.*copilot-instructions\.md') 'B: second run leaves the Copilot file unchanged'
 
@@ -219,14 +228,14 @@ except SyntaxError as e:
     $out = Run 'move-data.ps1' @{ HomeRoot = $B.Home; DataRoot = "$T\B-data"; AppNames = @('no-such-app') }
     Ok ($out -match 'Done\. Old copies') 'B: move-data finished'
     if ($out -notmatch 'Done\. Old copies') { Write-Host $out }
-    Ok ((Get-Item "$($B.Home)\.claude" -Force).LinkType -eq 'Junction' -and (Get-Item "$($B.Home)\$vault" -Force).LinkType -eq 'Junction') 'B: move-data left junctions'
+    Ok ((LinkType "$($B.Home)\.claude") -eq 'Junction' -and (LinkType "$($B.Home)\$vault") -eq 'Junction') 'B: move-data left junctions'
     Ok (Test-Path "$T\B-data\.claude\CLAUDE.md") 'B: data at new root'
     Set-Content "$($A.Home)\$vault\knowledge\after-move.md" 'TEST DATA after move'
     Ok (WaitFor { Test-Path "$T\B-data\$vault\knowledge\after-move.md" } 90) 'A -> B after move: still syncing'
     $out = Run 'check.ps1' @{ HomeRoot = $B.Home }; Ok ($out -match 'All checks passed') 'B: check.ps1 passes after move'
     if ($out -notmatch 'All checks passed') { Write-Host $out }
 }
-catch { $fails++; Write-Host "ERROR: $_" -ForegroundColor Red; Write-Host $_.ScriptStackTrace }
+catch { $fails++; Write-Host "ERROR: $_" -ForegroundColor Red; Write-Host $_.ScriptStackTrace; Show-LastOutput }
 finally {
     foreach ($m in $A, $B) { try { Api $m '/rest/system/shutdown' 'POST' | Out-Null } catch { } }
     Start-Sleep 3

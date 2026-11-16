@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.2 (2026-11-17)
+
+- When a step of the two-machine test fails, the test now prints what the kit command said, so a failure on GitHub can be traced without rerunning it on your PC. A missing folder link is reported as a failed check instead of stopping the whole test.
+- The automatic tests run once per commit; creating a release no longer starts a second, identical run.
+
 ## 1.3.1 (2026-11-17)
 
 - **Automatic tests on GitHub:** every push and pull request now runs the kit's tests: every script is checked in Windows PowerShell 5.1 and PowerShell 7, the macOS tool runs its self-test, and two fake machines install, pair, sync and turn hooks and plan-usage warnings on and off. The result shows as a check mark next to each commit.

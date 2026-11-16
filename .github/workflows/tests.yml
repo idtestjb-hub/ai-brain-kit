@@ -5,6 +5,7 @@ name: tests
 
 on:
   push:
+    branches: ['**']   # commits only: a release tag points at a commit that was already tested
   pull_request:
   workflow_dispatch:
 
