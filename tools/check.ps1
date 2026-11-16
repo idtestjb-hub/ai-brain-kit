@@ -50,5 +50,19 @@ if (Test-Path -LiteralPath $settings) {
     $want = if (Test-Path -LiteralPath $man) { @((Get-Content -LiteralPath $man -Raw | ConvertFrom-Json).hooks).Count } else { 0 }
     Res ($n -eq $want) 'hooks registered' "$n of $want in manifest (run register-hooks.ps1 if different)"
 }
+# Optional plan-usage warnings (only in editions that ship usage-guard.ps1).
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'usage-guard.ps1')) {
+    $ugDir = Join-Path $P.State 'usage-guard'
+    $ugVal = ''
+    if (Test-Path -LiteralPath $settings) {
+        $sj = Get-Content -LiteralPath $settings -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($sj.PSObject.Properties['env'] -and $sj.env.PSObject.Properties['CLAUDE_CODE_PLUGIN_DIRS']) { $ugVal = [string]$sj.env.CLAUDE_CODE_PLUGIN_DIRS }
+    }
+    if ($ugVal -and $ugVal.TrimEnd('/', '\') -ieq ($ugDir -replace '\\', '/')) {
+        Res (Test-Path -LiteralPath (Join-Path $ugDir 'hooks\register.ts')) 'usage warnings' "on, mod at $ugDir (run usage-guard.ps1 -On if missing)"
+    } else {
+        Write-Host 'INFO  usage warnings  off (optional: usage-guard.ps1 -On)'
+    }
+}
 Write-Host ''
 if ($fail) { Write-Host "$fail check(s) failed." -ForegroundColor Red; exit 1 } else { Write-Host 'All checks passed.' -ForegroundColor Green }

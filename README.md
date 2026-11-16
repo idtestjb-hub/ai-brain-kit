@@ -60,7 +60,7 @@ Needs Python 3 (`python3 --version` in Terminal; macOS offers to install it if m
    Joining an existing brain: get an invite code from a machine that has it (Setup > Invite on Windows, or `python3 tools/mac/brain.py invite` on a Mac), then:
    `python3 tools/mac/brain.py install --work-folder ~/Work --invite AIB1-...`
    and accept it on the inviting machine.
-4. Check: `python3 tools/mac/brain.py check`. Other commands: `invite`, `accept`, `connect-clients`, `register-hooks`.
+4. Check: `python3 tools/mac/brain.py check`. Other commands: `invite`, `accept`, `connect-clients`, `register-hooks`, `usage-guard`.
 
 The Mac installer downloads the official Syncthing release from Syncthing's GitHub page, verifies its SHA-256 checksum, keeps it in `~/.ai-brain/bin`, and starts it at login with a LaunchAgent.
 
@@ -75,6 +75,16 @@ The hooks and the list sync; each machine's `settings.json` does not. So on **ev
 powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\AI Brain\_tools\register-hooks.ps1" -InstallPython
 ```
 Run it again whenever `hooks.json` changes. Add `-PersonalMemory` on machines where you also want notes that stay on that machine only (`~/.claude/personal-memory/`).
+
+## 4b. Plan-usage warnings (optional, off by default)
+
+A small mod warns when your plan's usage limits (the 5-hour and weekly windows) get close: at 80% and 90% you see a notice and the assistant suggests which other assistant could continue the task; at 95% the assistant finishes the step in progress and writes a handoff (section "Handoff" in `AGENTS.md`), so another assistant or a later session can pick up. It works with the assistant whose settings live in `~/.claude/settings.json`, in a recent version (the desktop app has it; update the command-line version if it is older).
+
+Turn it on per machine, in Setup (**Plan-usage warnings**) or with:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\AI Brain\_tools\usage-guard.ps1" -On -Warn 80 -Prepare 90 -Handoff 95
+```
+`-Off` turns it off, no option shows the status, and `install.ps1 -UsageGuard` turns it on during the install. On a Mac: `python3 tools/mac/brain.py usage-guard --on` (or `--off`). The mod is copied to `~/.ai-brain/usage-guard` (it does not sync), and one line is added to the `env` block of that machine's `settings.json`, after a backup; your other settings stay as they are. New sessions pick it up.
 
 ## 5. Move the data to another drive (optional)
 

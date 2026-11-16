@@ -27,7 +27,8 @@ param(
     [int]$ListenPort = 22000,
     [int]$WaitMinutes = 30,
     [switch]$NoTask,
-    [switch]$NoWinget
+    [switch]$NoWinget,
+    [switch]$UsageGuard   # also turn on the optional plan-usage warnings (editions that ship usage-guard.ps1)
 )
 . (Join-Path $PSScriptRoot 'brain-common.ps1')
 $P   = Get-BrainPaths -HomeRoot $HomeRoot
@@ -225,6 +226,12 @@ if (-not $Join) {
     }
     if ($ready) { Step 'Connect the vault and installed AI clients'; & $connect -HomeRoot $HomeRoot }
     else { Write-Host 'First sync not finished yet. When the other machine has added this one, run this script again.' -ForegroundColor Yellow }
+}
+
+if ($UsageGuard) {
+    $ug = Join-Path $PSScriptRoot 'usage-guard.ps1'
+    if (Test-Path -LiteralPath $ug) { Step 'Turn on plan-usage warnings'; & $ug -On -HomeRoot $HomeRoot }
+    else { Write-Host 'This kit edition has no usage warnings; -UsageGuard ignored.' -ForegroundColor Yellow }
 }
 
 Write-Host ''

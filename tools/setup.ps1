@@ -75,6 +75,19 @@ function Select-WorkFolder {
     return $full
 }
 
+$HasUsageGuard = Test-Path -LiteralPath (Join-Path $PSScriptRoot 'usage-guard.ps1')
+function Set-UsageGuard {
+    Write-Host ''
+    Write-Host (T 'usageWhy')
+    $ans = Ask 'usageAsk'
+    if (IsYes $ans) {
+        $lv = Ask 'usageLevels'
+        $a = @{ On = $true }
+        if ($lv -match '^\s*(\d+)\D+(\d+)\D+(\d+)\s*$') { $a.Warn = [int]$Matches[1]; $a.Prepare = [int]$Matches[2]; $a.Handoff = [int]$Matches[3] }
+        Invoke-Tool 'usage-guard.ps1' $a | Out-Null
+    } elseif ($ans -match '^(off|tat)$') { Invoke-Tool 'usage-guard.ps1' @{ Off = $true } | Out-Null }
+}
+
 function Read-Invite {
     while ($true) {
         $c = Ask 'pasteCode'
@@ -103,6 +116,7 @@ if (-not (Test-Path -LiteralPath $P.BrainJson)) {
     $a = @{ WorkFolder = $wf }
     if ($code) { $a.Invite = $code }
     if (-not (Invoke-Tool 'install.ps1' $a)) { return }
+    if ($HasUsageGuard) { Set-UsageGuard }
     if (-not $code -and (IsYes (Ask 'inviteNow'))) { Invoke-Tool 'invite.ps1' | Out-Null }
     Write-Host ''; Write-Host (T 'bye') -ForegroundColor Green
     return
@@ -111,13 +125,16 @@ if (-not (Test-Path -LiteralPath $P.BrainJson)) {
 while ($true) {
     Write-Host ''
     Write-Host (T 'menuHave')
-    'optInvite', 'optAccept', 'optCheck', 'optConnect', 'optHooks', 'optQuit' | ForEach-Object { Write-Host (T $_) }
+    'optInvite', 'optAccept', 'optCheck', 'optConnect', 'optHooks' | ForEach-Object { Write-Host (T $_) }
+    if ($HasUsageGuard) { Write-Host (T 'optUsage') }
+    Write-Host (T 'optQuit')
     switch (Ask 'choose') {
         '1' { Invoke-Tool 'invite.ps1' | Out-Null }
         '2' { Write-Host (T 'acceptWait'); Invoke-Tool 'accept.ps1' @{ WaitSeconds = 120 } | Out-Null }
         '3' { Invoke-Tool 'check.ps1' | Out-Null }
         '4' { Invoke-Tool 'connect-clients.ps1' | Out-Null }
         '5' { Invoke-Tool 'register-hooks.ps1' @{ InstallPython = $true } | Out-Null }
+        '6' { if ($HasUsageGuard) { Invoke-Tool 'usage-guard.ps1' | Out-Null; Set-UsageGuard } else { Write-Host (T 'bye') -ForegroundColor Green; return } }
         default { Write-Host (T 'bye') -ForegroundColor Green; return }
     }
 }

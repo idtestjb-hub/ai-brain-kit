@@ -5,7 +5,7 @@ connect-clients, register-hooks, check). Python 3.8+, standard library only.
 
   python3 brain.py install --work-folder ~/Work                    first machine
   python3 brain.py install --work-folder ~/Work --invite AIB1-...  join an existing brain
-  python3 brain.py invite | accept | add-peer | connect-clients | register-hooks | check
+  python3 brain.py invite | accept | add-peer | connect-clients | register-hooks | usage-guard | check
 Test options: --home-root DIR, and for install --gui-port --listen-port --no-service --syncthing --wait-minutes.
 """
 import argparse
@@ -728,6 +728,14 @@ def cmd_install(a):
         else:
             print('First sync not finished yet. When the other machine has added this one, run this again.')
 
+    if a.usage_guard:
+        if os.path.isdir(ug_paths(P)[0]):
+            step('Turn on plan-usage warnings')
+            cmd_usage_guard(argparse.Namespace(home_root=a.home_root, settings_path=None, on=True, off=False,
+                                               warn=80, prepare=90, handoff=95, dry_run=False))
+        else:
+            print('This kit edition has no usage warnings; --usage-guard ignored.')
+
     print('\nDevice ID of this machine : %s' % my)
     print('Tailscale IP              : %s (port %d)' % (ts, a.listen_port))
     try:
@@ -916,6 +924,101 @@ def cmd_register_hooks(a):
     print('Hooks take effect in new sessions.')
 
 
+# ---- usage-guard (optional plan-usage warnings; only in editions that ship tools/usage-guard) ----
+
+UG_KEY = 'CLAUDE_CODE_PLUGIN_DIRS'
+UG_LEVELS_RX = re.compile(r'const WARN = (\d+), PREPARE = (\d+), HANDOFF = (\d+)')
+
+
+def ug_paths(P):
+    return os.path.join(tools_dir(), 'usage-guard'), os.path.join(P.state, 'usage-guard')
+
+
+def ug_state(P, settings_path):
+    """(value of the env key, whether it points at this machine's mod copy)."""
+    _src, dst = ug_paths(P)
+    cur = ''
+    if os.path.isfile(settings_path):
+        cur = str((json.loads(read_text(settings_path)).get('env') or {}).get(UG_KEY) or '')
+    ours = bool(cur) and cur.rstrip('/\\').replace('\\', '/').lower() == dst.replace('\\', '/').lower()
+    return cur, ours
+
+
+def cmd_usage_guard(a):
+    P = Paths(a.home_root)
+    settings_path = a.settings_path or os.path.join(P.config, 'settings.json')
+    src, dst = ug_paths(P)
+    dst_f = dst.replace('\\', '/')
+    if a.on and a.off:
+        raise BrainError('Use --on or --off, not both.')
+    if not os.path.isfile(os.path.join(src, 'hooks', 'register.ts')):
+        raise BrainError('The usage-guard mod is not part of this kit edition (%s missing).' % src)
+    cur, ours = ug_state(P, settings_path)
+    if not a.on and not a.off:
+        reg = os.path.join(dst, 'hooks', 'register.ts')
+        if ours and os.path.isfile(reg):
+            m = UG_LEVELS_RX.search(read_text(reg))
+            print('Usage warnings: on (levels %s), mod at %s' % ('/'.join(m.groups()) + '%' if m else '?', dst))
+        elif ours:
+            print('Usage warnings: switched on in settings.json but the mod is missing at %s. Run --on again.' % dst)
+        elif cur:
+            print('Usage warnings: off (%s is set to another folder: %s)' % (UG_KEY, cur))
+        else:
+            print('Usage warnings: off')
+        return 0
+    settings = json.loads(read_text(settings_path)) if os.path.isfile(settings_path) else {}
+
+    def save():
+        if a.dry_run:
+            print('DRY RUN: %s would get this env section (other settings unchanged):' % settings_path)
+            print(json.dumps(settings.get('env', '(no env)'), indent=2))
+            return
+        if os.path.isfile(settings_path):
+            shutil.copyfile(settings_path, '%s.bak-%s' % (settings_path, now('%Y%m%d-%H%M%S')))
+        write_utf8(settings_path, json.dumps(settings, indent=2, ensure_ascii=False))
+        print('Saved %s.' % settings_path)
+
+    if a.on:
+        lv = (a.warn, a.prepare, a.handoff)
+        if not all(1 <= x <= 100 for x in lv) or not (lv[0] < lv[1] < lv[2]):
+            raise BrainError('Levels must be 1-100 and rise: warn < prepare < handoff (got %d/%d/%d).' % lv)
+        if cur and not ours:
+            raise BrainError('%s in %s already points to another folder (%s). Nothing changed. Remove that line or '
+                             'add the mod folder (%s) by hand.' % (UG_KEY, settings_path, cur, dst_f))
+        if a.dry_run:
+            print('DRY RUN: would copy the mod to %s with levels %d/%d/%d%%.' % ((dst,) + lv))
+        else:
+            if os.path.isdir(dst):
+                shutil.rmtree(dst)
+            os.makedirs(P.state, exist_ok=True)
+            shutil.copytree(src, dst)
+            reg = os.path.join(dst, 'hooks', 'register.ts')
+            text = read_text(reg)
+            if not UG_LEVELS_RX.search(text):
+                raise BrainError('Could not find the levels line in %s.' % reg)
+            write_utf8(reg, UG_LEVELS_RX.sub('const WARN = %d, PREPARE = %d, HANDOFF = %d' % lv, text))
+            print('Mod copied to %s (levels %d/%d/%d%%).' % ((dst,) + lv))
+        settings.setdefault('env', {})[UG_KEY] = dst_f
+        save()
+        print('Usage warnings are on. They take effect in new sessions.')
+        return 0
+    if cur and not ours:
+        print('%s points to another folder (%s); left as is.' % (UG_KEY, cur))
+    elif ours:
+        del settings['env'][UG_KEY]
+        if not settings['env']:
+            del settings['env']
+        save()
+    if os.path.isdir(dst):
+        if a.dry_run:
+            print('DRY RUN: would remove %s.' % dst)
+        else:
+            shutil.rmtree(dst)
+            print('Removed %s.' % dst)
+    print('Usage warnings are off. New sessions start without them.')
+    return 0
+
+
 # ---- check ----------------------------------------------------------------------------------------
 
 def cmd_check(a):
@@ -971,6 +1074,13 @@ def cmd_check(a):
         mp = os.path.join(P.config, 'hooks', 'hooks.json')
         want = len(json.loads(read_text(mp)).get('hooks') or []) if os.path.isfile(mp) else 0
         res(n == want, 'hooks registered', '%d of %d in manifest (run register-hooks if different)' % (n, want))
+    if os.path.isdir(ug_paths(P)[0]):
+        _cur, ours = ug_state(P, sp)
+        if ours:
+            res(os.path.isfile(os.path.join(ug_paths(P)[1], 'hooks', 'register.ts')), 'usage warnings',
+                'on, mod at %s (run usage-guard --on if missing)' % ug_paths(P)[1])
+        else:
+            print('INFO  usage warnings  off (optional: brain.py usage-guard --on)')
     print('')
     if fails[0]:
         print('%d check(s) failed.' % fails[0])
@@ -1016,6 +1126,7 @@ def build_parser():
     p.add_argument('--no-service', action='store_true')
     p.add_argument('--syncthing')
     p.add_argument('--wait-minutes', type=int, default=30)
+    p.add_argument('--usage-guard', action='store_true', help='also turn on plan-usage warnings (if this edition has them)')
     sp('invite', lambda a: show_invite(Paths(a.home_root)), 'print this machine\'s invite code and QR')
     p = sp('accept', cmd_accept, 'pair machines that joined with your invite')
     p.add_argument('--yes', action='store_true')
@@ -1031,6 +1142,14 @@ def build_parser():
     p = sp('register-hooks', cmd_register_hooks, 'register shared hooks')
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--personal-memory', action='store_true')
+    p.add_argument('--settings-path')
+    p = sp('usage-guard', cmd_usage_guard, 'optional plan-usage warnings on/off for this machine (no option: status)')
+    p.add_argument('--on', action='store_true')
+    p.add_argument('--off', action='store_true')
+    p.add_argument('--warn', type=int, default=80)
+    p.add_argument('--prepare', type=int, default=90)
+    p.add_argument('--handoff', type=int, default=95)
+    p.add_argument('--dry-run', action='store_true')
     p.add_argument('--settings-path')
     sp('check', cmd_check, 'read-only health check')
     sp('selftest', cmd_selftest, 'check the code and ID routines')

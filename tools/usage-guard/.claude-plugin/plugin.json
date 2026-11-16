@@ -1,0 +1,5 @@
+{
+  "name": "usage-guard",
+  "version": "1.0.0",
+  "description": "Warns when the plan's usage limits (5-hour, weekly) reach set levels and asks the assistant to hand off before they run out"
+}

@@ -25,7 +25,14 @@
 ## Writing
 
 - **New memory note:** one fact per file in `memory/`, with front matter (`name`, `description`, `type: user | feedback | project | reference`), plus one line in `MEMORY.md`.
-- **Handoff:** write `handoffs/<yyyy-mm-dd>-<project>-P<n>.md`: what is done, what runs in the background, open items with `[ ]`, suggested next steps.
+- **Handoff:** write `handoffs/<yyyy-mm-dd>-<project>-P<n>.md`: what is done, what runs in the background, open items with `[ ]`, suggested next steps. Put these two lines near the top:
+  - `Handed off from: <machine> · <assistant> · <model>`, the machine as `hostname` prints it or the short name you gave it.
+  - `Suggested next: <assistant> · <model> · <effort> (<short reason>)`, the best fit for the next task.
+
+  End your reply with one line the user pastes as the first message of the new session:
+  `Continue [Project] (from <machine> · <assistant> <model> → use <assistant> · model <model> · effort <level>): read ~/.claude/handoffs/<file>.md and follow it`
+
+  If you cannot write to `~/.claude/handoffs/` (for example, you run in a sandbox), write the handoff in your working folder and say where; the next session copies it into `handoffs/`.
 - **Never edit the same file on two machines while one is offline.** If a `*.sync-conflict-*` file appears, compare both copies and merge by hand.
 
 ## Never
