@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 (2026-11-17)
+
+- **Automatic tests on GitHub:** every push and pull request now runs the kit's tests: every script is checked in Windows PowerShell 5.1 and PowerShell 7, the macOS tool runs its self-test, and two fake machines install, pair, sync and turn hooks and plan-usage warnings on and off. The result shows as a check mark next to each commit.
+- The kit now includes its tests in `tests/`, so you can run the two-machine test on your own PC (see "Tests" in the guide). Nothing changes for an existing install.
+
 ## 1.3.0 (2026-11-16)
 
 - **Plan-usage warnings (optional, off by default):** a small mod warns when the plan's 5-hour or weekly usage limit reaches 80% and 90%, and at 95% asks the assistant to finish the current step and write a handoff. The three levels can be changed. Turn it on or off per machine in Setup, with `usage-guard.ps1 -On/-Off`, `install.ps1 -UsageGuard`, or `brain.py usage-guard --on/--off` on a Mac. It only adds one line to that machine's `settings.json` (backed up first) and does not sync. `check` shows whether it is on.

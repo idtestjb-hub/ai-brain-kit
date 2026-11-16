@@ -101,6 +101,18 @@ The real folders move to the new drive; junctions with the same names stay in yo
 powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\AI Brain\_tools\check.ps1"
 ```
 
+## Tests (for anyone changing the kit)
+
+Every push and pull request on GitHub runs the tests in `.github/workflows/tests.yml`: quick checks of every script in Windows PowerShell 5.1 and PowerShell 7, the macOS tool's self-test, and a full install of two machines that pair, sync and switch the optional parts on and off. The GitHub runner has no Tailscale, so `tests/ci-prepare.ps1` gives it a stand-in address; that script only runs on GitHub.
+
+To run the two-machine test on your own PC (Tailscale signed in, Syncthing and Python installed), from the kit folder:
+
+```powershell
+pwsh -NoProfile -File tests\e2e.ps1 -Kit . -WorkRoot C:\Temp\kit-e2e
+```
+
+It uses its own folders and ports and stops its own Syncthing copies at the end, so your real brain is not touched.
+
 ## What syncs, what does not
 
 | Syncs (all machines) | Stays on each machine |

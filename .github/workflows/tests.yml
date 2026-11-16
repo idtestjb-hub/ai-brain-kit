@@ -1,0 +1,64 @@
+# Runs the kit's own tests on every push and pull request.
+# The Windows runner has no tailnet, so tests\ci-prepare.ps1 sets up Syncthing (pinned, hash-checked)
+# and a stand-in Tailscale address before the two-machine test.
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: static checks (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Parse scripts, read JSON, compile Python
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests\ci-static.ps1
+        shell: pwsh
+
+  mac:
+    name: macOS tool self-test
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: brain.py selftest (device ID round trip, invite code)
+        run: python3 -B tools/mac/brain.py selftest
+      - name: brain.py help for every command
+        run: |
+          for c in install invite accept add-peer check connect-clients register-hooks usage-guard; do
+            python3 -B tools/mac/brain.py "$c" --help > /dev/null
+          done
+
+  e2e:
+    name: two-machine test (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syncthing and a stand-in Tailscale address
+        run: pwsh -NoProfile -File tests\ci-prepare.ps1
+        shell: pwsh
+      - name: Install on two fake machines, sync, hooks, usage warnings, move data
+        run: pwsh -NoProfile -File tests\e2e.ps1 -Kit . -Shell ${{ matrix.shell }} -WorkRoot "$env:RUNNER_TEMP\e2e"
+        shell: pwsh
